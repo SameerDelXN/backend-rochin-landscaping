@@ -30,6 +30,24 @@ exports.getTenantInfo = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get my tenant (with subscription) for tenant admin
+// @route   GET /api/v1/tenant/me
+// @access  Private/TenantAdmin
+exports.getMyTenant = asyncHandler(async (req, res, next) => {
+  // Expect auth middleware to set req.user.tenantId
+  const tenantId = req.user?.tenantId?._id || req.user?.tenantId;
+  if (!tenantId) {
+    return next(new ErrorResponse('Tenant context not found', 404));
+  }
+
+  const tenant = await Tenant.findById(tenantId);
+  if (!tenant) {
+    return next(new ErrorResponse('Tenant not found', 404));
+  }
+
+  res.status(200).json({ success: true, data: tenant });
+});
+
 // @desc    Get all tenants
 // @route   GET /api/v1/admin/tenants
 // @access  Private/Superadmin

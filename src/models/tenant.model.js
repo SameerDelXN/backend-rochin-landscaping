@@ -6,21 +6,15 @@ const tenantSchema = new mongoose.Schema({
     required: [true, 'Tenant name is required.'],
     trim: true,
   },
-  email: {
-    type: String,
-    required: [true, 'Tenant email is required.'],
-    unique: true,
-    trim: true,
-  },
   subdomain: {
     type: String,
     required: [true, 'Subdomain is required.'],
     trim: true,
     unique: true,
   },
-   email: {
+  email: {
     type: String,
-    required: [true, 'Email is required.'],
+    required: [true, 'Tenant email is required.'],
     trim: true,
     lowercase: true,
     unique: true,
@@ -44,6 +38,16 @@ phone: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  stripeCustomerId: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  stripeSubscriptionId: {
+    type: String,
+    default: null,
+    index: true,
+  },
   settings: {
     logo: String,
     themeColor: String,
@@ -55,13 +59,28 @@ phone: {
   subscription: {
     plan: {
       type: String,
-      enum: ['basic', 'premium', 'enterprise', 'none'],
+      trim: true,
       default: 'none',
     },
     status: {
       type: String,
       enum: ['active', 'inactive', 'trialing', 'suspended'],
       default: 'trialing',
+    },
+    billingCycle: {
+      type: String,
+      enum: ['monthly', 'yearly'],
+      default: 'monthly',
+    },
+    amount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    currency: {
+      type: String,
+      default: 'USD',
+      uppercase: true,
     },
     startDate: Date,
     endDate: Date,
@@ -70,6 +89,20 @@ phone: {
     type: Date,
     default: Date.now,
   },
+});
+
+// Normalize basic fields (keep user-defined plan keys)
+tenantSchema.pre('validate', function(next) {
+  if (!this.subscription) return next();
+  let plan = this.subscription.plan;
+  let cycle = this.subscription.billingCycle;
+  if (typeof plan === 'string') plan = plan.trim().toLowerCase();
+  if (typeof cycle === 'string') cycle = cycle.trim().toLowerCase();
+  if (!['monthly', 'yearly'].includes(cycle)) cycle = 'monthly';
+  this.subscription.plan = plan || 'none';
+  this.subscription.billingCycle = cycle;
+  if (!this.subscription.currency) this.subscription.currency = 'USD';
+  next();
 });
 
 module.exports = mongoose.model('Tenant', tenantSchema);

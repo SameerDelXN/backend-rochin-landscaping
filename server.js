@@ -90,7 +90,6 @@ const estimateRoutes = require('./src/routes/estimate.routes');
 const serviceRoutes = require('./src/routes/service.routes');
 const paymentRoutes = require('./src/routes/payment.routes');
 const customerRoutes = require('./src/routes/customer.routes');
-const dashboardRoutes = require('./src/routes/dashboard.routes');
 const professionalRoutes = require('./src/routes/professional.routes');
 const reportRoutes = require('./src/routes/report.routes');
 const businessSettingRoutes = require('./src/routes/business-setting.routes');
@@ -98,6 +97,10 @@ const galleryRoutes = require('./src/routes/gallery.routes');
 const portfolioRoutes = require('./src/routes/portfolio.routes');
 const heroImageRoutes = require('./src/routes/hero-image');
 const adminRoutes = require('./src/routes/admin.routes');
+const subscriptionRoutes = require('./src/routes/subscription.routes');
+const dashboardRoutes = require('./src/routes/dashboard.routes');
+const webhookRoutes = require('./src/routes/webhook.routes');
+const equipmentRoutes = require('./src/routes/equipment.routes');
 
 // Import the contact route
 const contactRoutes = require('./src/routes/contact');
@@ -120,12 +123,6 @@ const tenantRoutes = require('./src/routes/tenant.routes');
 // Import super admin routes
 const superAdminRoutes = require('./src/routes/super-admin.routes');
 
-// Import webhook routes
-const webhookRoutes = require('./src/routes/webhook.routes');
-
-// Import equipment routes
-const equipmentRoutes = require('./src/routes/equipment.routes');
-
 // Mount routers
 app.use(`${API_PREFIX}/auth`, authRoutes);
 app.use(`${API_PREFIX}/users`, userRoutes);
@@ -142,6 +139,7 @@ app.use(`${API_PREFIX}/gallery`, galleryRoutes);
 app.use(`${API_PREFIX}/portfolio`, portfolioRoutes);
 app.use(`${API_PREFIX}/hero-image`, heroImageRoutes);
 app.use(`${API_PREFIX}/admin`, adminRoutes);
+app.use(`${API_PREFIX}/subscriptions`, subscriptionRoutes);
 
 // Mount super admin routes
 app.use(`${API_PREFIX}/super-admin`, superAdminRoutes);

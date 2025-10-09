@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middlewares/auth');
 const superAdminController = require('../controllers/super-admin.controller');
+const subscriptionPlansController = require('../controllers/subscription-plans.controller');
 
 // Apply super admin authorization to all routes
 router.use(protect);
@@ -49,6 +50,10 @@ router.get('/settings/email', superAdminController.getEmailSettings);
 router.put('/settings/email', superAdminController.updateEmailSettings);
 router.get('/settings/payment', superAdminController.getPaymentSettings);
 router.put('/settings/payment', superAdminController.updatePaymentSettings);
+
+// Subscription plans management
+router.get('/settings/subscription-plans', subscriptionPlansController.getSubscriptionPlans);
+router.put('/settings/subscription-plans', subscriptionPlansController.updateSubscriptionPlans);
 
 // Activity Logs
 router.get('/activity-logs', superAdminController.getActivityLogs);

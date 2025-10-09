@@ -28,7 +28,14 @@ const extractTenantDomain = (host) => {
     return domain; // Use the computer name as tenant subdomain
   }
 
-  // All other domains are tenant domains
+  // For multi-part domains like sub.example.com, return only the left-most label as subdomain
+  const parts = domain.split('.');
+  if (parts.length >= 3 && parts[0] !== 'www') {
+    return parts[0];
+  }
+
+  // For apex custom domains (e.g., custom tenant.com), we assume subdomain stored equals the apex domain
+  // Return the domain as-is in that case
   return domain;
 };
 
@@ -36,8 +43,11 @@ const extractTenantDomain = (host) => {
 exports.resolveTenant = asyncHandler(async (req, res, next) => {
   // Prefer domain from header; fallback to host extraction
   const headerDomain = req.headers['x-tenant-domain'];
-  const tenantDomain = headerDomain || extractTenantDomain(req.headers.host);
-  console.log('Tenant Resolver: headerDomain:', headerDomain, 'extracted domain:', tenantDomain);
+  const headerSubdomain = req.headers['x-tenant-subdomain'];
+  // If explicit subdomain header is present, use it. Otherwise, if domain header is present, extract subdomain from it.
+  const resolvedFromHeader = headerSubdomain || (headerDomain ? extractTenantDomain(headerDomain) : null);
+  const tenantDomain = resolvedFromHeader || extractTenantDomain(req.headers.host);
+  console.log('Tenant Resolver: headerSubdomain:', headerSubdomain, 'headerDomain:', headerDomain, 'resolved:', tenantDomain);
   // For super admin routes or no tenant domain, continue without tenant context
   if (!tenantDomain || req.path.startsWith('/api/v1/admin') || req.path.startsWith('/api/v1/super-admin')) {
     return tenantContext.run({}, next);
@@ -47,7 +57,7 @@ exports.resolveTenant = asyncHandler(async (req, res, next) => {
   const tenant = await Tenant.findOne({ subdomain: tenantDomain });
   
   if (!tenant) {
-    console.log('Tenant Resolver: No tenant found for domain:', tenantDomain);
+    console.log('Tenant Resolver: No tenant found for domain/subdomain:', tenantDomain);
     return next(new ErrorResponse(`Tenant not found for domain: ${tenantDomain}`, 404));
   }
   console.log('Tenant Resolver: Tenant found:', tenant.name, tenant._id);

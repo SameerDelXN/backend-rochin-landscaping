@@ -36,7 +36,8 @@ const createTenant = async () => {
       address: '',
       phone: '',
       subscription: {
-        plan: 'monthly',
+        plan: 'basic',
+        billingCycle: 'monthly',
         status: 'active'
       }
     });
