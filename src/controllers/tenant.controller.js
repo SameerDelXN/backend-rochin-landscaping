@@ -7,8 +7,11 @@ const tenantContext = require('../utils/tenantContext');
 // @route   GET /api/v1/tenant/info
 // @access  Public
 exports.getTenantInfo = asyncHandler(async (req, res, next) => {
-  const store = tenantContext.getStore();
+  console.log("STart")
+
   
+  const store = tenantContext.getStore();
+  console.log(store)
   if (!store?.tenantId) {
     // For superadmin domains, return null tenant info instead of error
     return res.status(200).json({

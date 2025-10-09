@@ -7,7 +7,7 @@ const tenantContext = require('../utils/tenantContext');
 const extractTenantDomain = (host) => {
   if (!host) return null;
 
-  const domain = host.split(':')[0]; // Remove port
+  const domain = host.split(':')[0].toLowerCase(); // Remove port and normalize
 
   // Handle localhost development - superadmin domain
   if (domain === 'localhost' || domain === '127.0.0.1') {
@@ -30,12 +30,16 @@ const extractTenantDomain = (host) => {
 
   // For multi-part domains like sub.example.com, return only the left-most label as subdomain
   const parts = domain.split('.');
-  if (parts.length >= 3 && parts[0] !== 'www') {
+  if (parts.length >= 3) {
+    if (parts[0] === 'www') {
+      // For www.custom-domain.com, normalize to apex custom-domain.com
+      return parts.slice(1).join('.');
+    }
+    // For tenant subdomains like tenant.example.com, use the left-most as subdomain key
     return parts[0];
   }
 
-  // For apex custom domains (e.g., custom tenant.com), we assume subdomain stored equals the apex domain
-  // Return the domain as-is in that case
+  // For apex custom domains (e.g., custom-domain.com), return the domain as-is
   return domain;
 };
 
@@ -53,8 +57,13 @@ exports.resolveTenant = asyncHandler(async (req, res, next) => {
     return tenantContext.run({}, next);
   }
   
-  // Find tenant by subdomain (using domain as subdomain identifier)
-  const tenant = await Tenant.findOne({ subdomain: tenantDomain });
+  // Find tenant by subdomain OR by customDomains (apex or full domains)
+  const tenant = await Tenant.findOne({
+    $or: [
+      { subdomain: tenantDomain },
+      { customDomains: { $in: [tenantDomain] } },
+    ],
+  });
   
   if (!tenant) {
     console.log('Tenant Resolver: No tenant found for domain/subdomain:', tenantDomain);
