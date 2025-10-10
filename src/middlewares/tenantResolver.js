@@ -58,15 +58,26 @@ exports.resolveTenant = asyncHandler(async (req, res, next) => {
   }
   
   // Find tenant by subdomain OR by customDomains (apex or full domains)
-  const tenant = await Tenant.findOne({
+  let tenant = await Tenant.findOne({
     $or: [
       { subdomain: tenantDomain },
       { customDomains: { $in: [tenantDomain] } },
     ],
   });
   
+  // Fallback: if domain looks like an apex (e.g., gardening1.info),
+  // try resolving the first label as a subdomain (gardening1)
   if (!tenant) {
-    console.log('Tenant Resolver: No tenant found for domain/subdomain:', tenantDomain);
+    const parts = (tenantDomain || '').split('.');
+    if (parts.length === 2) {
+      const firstLabel = parts[0];
+      console.log('Tenant Resolver: Fallback trying first label as subdomain:', firstLabel);
+      tenant = await Tenant.findOne({ subdomain: firstLabel });
+    }
+  }
+
+  if (!tenant) {
+    console.log('Tenant Resolver: No tenant found for domain/subdomain (after fallback):', tenantDomain);
     return next(new ErrorResponse(`Tenant not found for domain: ${tenantDomain}`, 404));
   }
   console.log('Tenant Resolver: Tenant found:', tenant.name, tenant._id);
