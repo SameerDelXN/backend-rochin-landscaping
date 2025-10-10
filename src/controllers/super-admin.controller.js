@@ -232,22 +232,27 @@ exports.createTenant = asyncHandler(async (req, res, next) => {
     logoUrl = result.secure_url;
   }
 
+  // Normalize incoming plan from UI ('monthly' | 'annual' | 'none') into billingCycle.
+  // Keep subscription.plan as a plan key (or 'none') to avoid invalid enum values.
+  const normalizedPlan = typeof plan === 'string' ? plan.trim().toLowerCase() : undefined;
+  const billingCycle = normalizedPlan === 'annual' ? 'yearly' : normalizedPlan === 'monthly' ? 'monthly' : undefined;
+
   // 1. Create tenant with super admin as temporary owner
   const tenant = await Tenant.create({
     name,
     email,
     subdomain,
-    email,
-  
-    owner: req.user.id, // Temporary owner
+    owner: req.user.id, // Temporary owner: super admin
     logo: logoUrl,
     settings: {
-      themeColor: '#10B981', // Default green theme
+      themeColor: '#10B981',
       timezone: 'UTC'
     },
     subscription: {
-      plan: plan || 'none',
+      // Keep plan key neutral until the tenant picks a plan via Stripe
+      plan: 'none',
       status: 'trialing',
+      billingCycle: billingCycle || 'monthly',
       startDate: new Date()
     }
   });
@@ -256,7 +261,6 @@ exports.createTenant = asyncHandler(async (req, res, next) => {
   const adminUser = await User.create({
     name: `${name} Admin`,
     email,
-   
     password: adminPassword,
     role: 'tenantAdmin',
     tenantId: tenant._id,

@@ -42,10 +42,17 @@ app.use(helmet({
 // Note: CORS now allows all origins for multi-tenant setup
 
 // CORS configuration - Allow all origins for multi-tenant setup
+// Enhanced CORS configuration
 app.use(cors({
-  origin: true, // Allow all origins
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins for multi-tenant setup
+    return callback(null, true);
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -55,9 +62,23 @@ app.use(cors({
     'x-tenant-id',
     'x-tenant-subdomain',
     'x-tenant-domain',
-     'x-all-tenants'
-  ]
+    'x-all-tenants',
+    'Accept',
+    'Origin',
+    'X-API-Key'
+  ],
+  exposedHeaders: [
+    'Content-Range',
+    'X-Content-Range',
+    'X-Tenant-Id',
+    'X-Tenant-Name'
+  ],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors()); // Enable preflight for all routes
 
 
 // Add this before your routes
