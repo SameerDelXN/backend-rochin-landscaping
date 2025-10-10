@@ -17,7 +17,8 @@ const extractTenantDomain = (host) => {
   // Handle production - superadmin domain
   if (domain === 'www.landscape360.com' || domain === 'landscape360.com' || 
       domain === 'delxn.club' || domain === 'www.delxn.club' ||
-      domain === 'backend-rochin-landscaping.onrender.com') {
+      domain === 'backend-rochin-landscaping.onrender.com' ||
+      domain === 'backend-rochin-landscaping-beta.vercel.app') {
     return null; // Superadmin mode
   }
 
@@ -45,6 +46,10 @@ const extractTenantDomain = (host) => {
 
 // Resolve tenant from domain and set context
 exports.resolveTenant = asyncHandler(async (req, res, next) => {
+  // Bypass tenant resolution for aggregate public routes on main domain
+  if (req.path && req.path.startsWith('/api/v1/portfolio/all')) {
+    return tenantContext.run({}, next);
+  }
   // Prefer domain from custom headers; then try request Origin; fallback to backend Host
   const headerDomain = req.headers['x-tenant-domain'];
   const headerSubdomain = req.headers['x-tenant-subdomain'];
