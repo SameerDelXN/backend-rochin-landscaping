@@ -12,13 +12,8 @@ const tenantSchema = new mongoose.Schema({
     trim: true,
     unique: true,
   },
-  // Optional list of apex or full custom domains that should resolve to this tenant
-  // Example: ["gardening1.info", "mybrand.com"]
-  customDomains: {
-    type: [String],
-    default: [],
-    index: true,
-  },
+  
+
   email: {
     type: String,
     required: [true, 'Tenant email is required.'],
