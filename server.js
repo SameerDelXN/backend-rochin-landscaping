@@ -38,21 +38,26 @@ app.use(helmet({
   crossOriginResourcePolicy: false, // Disable if you're handling CORS elsewhere
 }));
 
-// Enable CORS with specific origin
-// Note: CORS now allows all origins for multi-tenant setup
+// Ensure caches/proxies vary on Origin and do not cache API responses
+app.use((req, res, next) => {
+  if (req.headers.origin) {
+    const existingVary = res.getHeader('Vary');
+    if (!existingVary) {
+      res.setHeader('Vary', 'Origin');
+    } else if (typeof existingVary === 'string' && !existingVary.includes('Origin')) {
+      res.setHeader('Vary', existingVary + ', Origin');
+    }
+  }
+  // Prevent stale ACAO header from being cached and served to different tenants
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 
-// CORS configuration - Allow all origins for multi-tenant setup
-// Enhanced CORS configuration
+// CORS configuration - Allow all origins for multi-tenant setup (echo the request origin)
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow all origins for multi-tenant setup
-    return callback(null, true);
-  },
+  origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -62,23 +67,12 @@ app.use(cors({
     'x-tenant-id',
     'x-tenant-subdomain',
     'x-tenant-domain',
-    'x-all-tenants',
-    'Accept',
-    'Origin',
-    'X-API-Key'
-  ],
-  exposedHeaders: [
-    'Content-Range',
-    'X-Content-Range',
-    'X-Tenant-Id',
-    'X-Tenant-Name'
-  ],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+    'x-all-tenants'
+  ]
 }));
 
-// Handle preflight requests explicitly
-app.options('*', cors()); // Enable preflight for all routes
+// Explicitly handle preflight requests with CORS
+app.options('*', cors({ origin: true, credentials: true }));
 
 
 // Add this before your routes
