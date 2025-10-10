@@ -25,19 +25,7 @@ const { resolveTenant } = require('./src/middlewares/tenantResolver');
 // With this:
 app.use(express.json({ limit: '50mb' }));
 
-// Cookie parser
-app.use(cookieParser());
-
-// Dev logging middleware
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
-
-// Security middleware
-app.use(helmet({
-  crossOriginResourcePolicy: false, // Disable if you're handling CORS elsewhere
-}));
-
+// CORS must run before all other middleware to ensure headers are present on every response
 // Ensure caches/proxies vary on Origin and do not cache API responses
 app.use((req, res, next) => {
   if (req.headers.origin) {
@@ -47,13 +35,15 @@ app.use((req, res, next) => {
     } else if (typeof existingVary === 'string' && !existingVary.includes('Origin')) {
       res.setHeader('Vary', existingVary + ', Origin');
     }
+    // As a safety net, set ACAO early; cors() below will set it too
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   }
-  // Prevent stale ACAO header from being cached and served to different tenants
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
-// CORS configuration - Allow all origins for multi-tenant setup (echo the request origin)
+// Primary CORS configuration - echo request origin
 app.use(cors({
   origin: true,
   credentials: true,
@@ -71,8 +61,21 @@ app.use(cors({
   ]
 }));
 
-// Explicitly handle preflight requests with CORS
+// Explicitly handle preflight requests with CORS (before any routes)
 app.options('*', cors({ origin: true, credentials: true }));
+
+// Cookie parser
+app.use(cookieParser());
+
+// Dev logging middleware
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Disable if you're handling CORS elsewhere
+}));
 
 
 // Add this before your routes
