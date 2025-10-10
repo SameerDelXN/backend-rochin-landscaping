@@ -47,7 +47,7 @@ const extractTenantDomain = (host) => {
 // Resolve tenant from domain and set context
 exports.resolveTenant = asyncHandler(async (req, res, next) => {
   // Bypass tenant resolution for aggregate public routes on main domain
-  if (req.path && req.path.startsWith('/api/v1/portfolio/all')) {
+  if (req.path && (req.path.startsWith('/api/v1/portfolio/all') || req.path.startsWith('/api/v1/services/public'))) {
     return tenantContext.run({}, next);
   }
   // Prefer domain from custom headers; then try request Origin; fallback to backend Host
