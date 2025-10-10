@@ -119,6 +119,7 @@ const subscriptionRoutes = require('./src/routes/subscription.routes');
 const dashboardRoutes = require('./src/routes/dashboard.routes');
 const webhookRoutes = require('./src/routes/webhook.routes');
 const equipmentRoutes = require('./src/routes/equipment.routes');
+const publicRoutes = require('./src/routes/public.routes');
 
 // Import the contact route
 const contactRoutes = require('./src/routes/contact');
@@ -185,6 +186,7 @@ app.use('/webhook', webhookRoutes);
 
 // Mount equipment routes
 app.use(`${API_PREFIX}/equipment`, equipmentRoutes);
+app.use(`${API_PREFIX}/public`, publicRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {

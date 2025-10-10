@@ -83,14 +83,22 @@ exports.createGallery = asyncHandler(async (req, res, next) => {
 exports.getGalleries = asyncHandler(async (req, res, next) => {
   const store = tenantContext.getStore();
   const tenantId = store?.tenantId;
+  const showAllTenants = (req.headers['x-all-tenants'] === 'true');
   
   let filter = {};
   if (tenantId) {
     filter.tenant = tenantId;
   } else {
-    // No tenant context - superadmin can see all
-    if (req.user?.role !== 'superAdmin') {
-      return res.status(200).json({ success: true, count: 0, data: [] });
+    // No tenant context
+    // If explicitly requested from main domain to aggregate across all tenants,
+    // return ALL galleries across all tenants (no status filter)
+    if (showAllTenants) {
+      // no additional filter
+    } else {
+      // Otherwise, only superAdmin can see all
+      if (req.user?.role !== 'superAdmin') {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
     }
   }
 
