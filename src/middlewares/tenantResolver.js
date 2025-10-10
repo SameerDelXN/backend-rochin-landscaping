@@ -45,11 +45,22 @@ const extractTenantDomain = (host) => {
 
 // Resolve tenant from domain and set context
 exports.resolveTenant = asyncHandler(async (req, res, next) => {
-  // Prefer domain from header; fallback to host extraction
+  // Prefer domain from custom headers; then try request Origin; fallback to backend Host
   const headerDomain = req.headers['x-tenant-domain'];
   const headerSubdomain = req.headers['x-tenant-subdomain'];
-  // If explicit subdomain header is present, use it. Otherwise, if domain header is present, extract subdomain from it.
-  const resolvedFromHeader = headerSubdomain || (headerDomain ? extractTenantDomain(headerDomain) : null);
+  // Extract origin host if present (e.g., https://gardening1.info)
+  let originHost = null;
+  if (req.headers.origin) {
+    try {
+      originHost = new URL(req.headers.origin).host; // e.g., gardening1.info
+    } catch (_) {
+      originHost = null;
+    }
+  }
+  // Resolve in priority order: explicit subdomain header -> domain header -> Origin header -> Host header
+  const resolvedFromHeader = headerSubdomain
+    || (headerDomain ? extractTenantDomain(headerDomain) : null)
+    || (originHost ? extractTenantDomain(originHost) : null);
   const tenantDomain = resolvedFromHeader || extractTenantDomain(req.headers.host);
   console.log('Tenant Resolver: headerSubdomain:', headerSubdomain, 'headerDomain:', headerDomain, 'resolved:', tenantDomain);
   // For super admin routes or no tenant domain, continue without tenant context
