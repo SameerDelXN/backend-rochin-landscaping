@@ -12,6 +12,16 @@ const tenantSchema = new mongoose.Schema({
     trim: true,
     unique: true,
   },
+  // Optional hosted domains for this tenant (preferred for public links)
+  customDomains: {
+    type: [String],
+    default: [],
+  },
+  // Optional primary apex domain
+  domain: {
+    type: String,
+    trim: true,
+  },
   
 
   email: {

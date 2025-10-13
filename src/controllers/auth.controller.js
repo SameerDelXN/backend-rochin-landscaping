@@ -63,19 +63,25 @@ exports.register = asyncHandler(async (req, res, next) => {
     // Send password setup email
     let setupUrl;
     if (tenantId) {
-      // Fetch tenant info to get subdomain
+      // Fetch tenant info to derive real frontend domain
       const Tenant = require('../models/tenant.model');
       const tenant = await Tenant.findById(tenantId);
-      if (!tenant || !tenant.subdomain) {
-        return next(new ErrorResponse('Tenant subdomain not found', 400));
+      if (!tenant) {
+        return next(new ErrorResponse('Tenant not found', 400));
       }
-      setupUrl = getTenantFrontendUrl(tenant.subdomain, `/auth/set-password/${resetToken}`);
+      // Build from tenant config; if absent, prefer the request's public host (Origin/Host)
+      setupUrl = getTenantFrontendUrl(
+        tenant,
+        `/auth/set-password/${resetToken}`,
+        { preferHost: req.headers.origin || req.get('host') }
+      );
     } else {
-      // Fallback for superAdmin or no tenant
-      setupUrl = `${process.env.FRONTEND_URL}/auth/set-password/${resetToken}`;
+      // Fallback for superAdmin or no tenant: use FRONTEND_URL only
+      const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+      setupUrl = `${base}/auth/set-password/${resetToken}`;
     }
-    const message = `Welcome! Please set your password by visiting the following link:\n\n${setupUrl}\n\nThis link will expire in 1 hour.`;
 
+    const message = `Welcome! Please set your password by visiting the following link:\n\n${setupUrl}\n\nThis link will expire in 1 hour.`;
     try {
       await sendEmail({
         email: user.email,
@@ -239,13 +245,15 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   if (user.tenantId) {
     const Tenant = require('../models/tenant.model');
     const tenant = await Tenant.findById(user.tenantId);
-    if (tenant && tenant.subdomain) {
-      resetUrl = getTenantFrontendUrl(tenant.subdomain, `/reset-password/${resetToken}`);
-    } else {
-      resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    }
+    // Build from tenant config; if absent, prefer the request's public host (Origin/Host)
+    resetUrl = getTenantFrontendUrl(
+      tenant || null,
+      `/reset-password/${resetToken}`,
+      { preferHost: req.headers.origin || req.get('host') }
+    );
   } else {
-    resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    resetUrl = `${base}/reset-password/${resetToken}`;
   }
   const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please go to this URL to reset your password: \n\n ${resetUrl}`;
 
