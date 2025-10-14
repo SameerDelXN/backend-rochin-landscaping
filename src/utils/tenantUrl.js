@@ -1,6 +1,5 @@
 function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
   const mainDomain = process.env.BASE_DOMAIN || 'delxn.club';
-  const protocol = process.env.FRONTEND_PROTOCOL || (String(mainDomain).startsWith('localhost') ? 'http' : 'https');
 
   // Normalize helper: strip protocol and trailing slash from a domain/url
   const normalizeDomain = (d) => String(d).replace(/^https?:\/\//i, '').replace(/\/$/, '');
@@ -15,6 +14,18 @@ function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
       return null;
     }
   };
+  // Identify local/dev style hosts to prefer HTTP
+  const isLocalDevHost = (host) => {
+    if (!host) return false;
+    const h = String(host).toLowerCase();
+    // Examples that should use http: localhost:3000, 127.0.0.1:3000, ramirez-gardening:3000, <name>.127.0.0.1.nip.io:3000
+    return (
+      h.includes('localhost') ||
+      h.includes('127.0.0.1') ||
+      /:([3-9]\d{2,5})$/.test(h) || // any explicit port (e.g., :3000, :5173)
+      /^[a-z0-9-]+(?::\d+)?$/.test(h) // bare host without dots (e.g., ramirez-gardening or ramirez-gardening:3000)
+    );
+  };
   const isAdminOrLocal = (host) => {
     if (!host) return true;
     const h = host.split(':')[0].toLowerCase();
@@ -27,6 +38,10 @@ function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
     );
   };
   const preferredHost = extractHost(options.preferHost);
+  // Choose protocol: env override > local-dev detection > mainDomain heuristic
+  const protocol =
+    process.env.FRONTEND_PROTOCOL ||
+    (isLocalDevHost(preferredHost) || String(mainDomain).startsWith('localhost') ? 'http' : 'https');
 
   let fullDomain;
 
