@@ -6,12 +6,13 @@ const Appointment = require('../models/appointment.model');
 const Service = require('../models/service.model');
 const Customer = require('../models/customer.model');
 const cloudinary = require('../utils/cloudinary');
+const ActivityLog = require('../models/ActivityLog');
+const { getClientIp } = require('../utils/requestIp');
 
 // @desc    Get dashboard statistics
 // @route   GET /api/v1/super-admin/dashboard-stats
 // @access  Super Admin
 exports.getDashboardStats = asyncHandler(async (req, res, next) => {
-  // Get total counts with error handling
   const [totalTenants, activeTenants, totalUsers, totalAppointments, totalServices, totalCustomers] = await Promise.all([
     Tenant.countDocuments().catch(() => 0),
     Tenant.countDocuments({ 'subscription.status': 'active' }).catch(() => 0),
@@ -20,7 +21,7 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
     Service.countDocuments().catch(() => 0),
     Customer.countDocuments().catch(() => 0)
   ]);
-  
+
   // Get recent activity (last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const [recentTenants, recentUsers, recentAppointments] = await Promise.all([
@@ -275,6 +276,19 @@ exports.createTenant = asyncHandler(async (req, res, next) => {
     success: true,
     data: tenant
   });
+  
+  // Log activity: tenant created
+  try {
+    await ActivityLog.log({
+      type: 'tenant_created',
+      message: `Tenant created: ${tenant.name}`,
+      userId: req.user?._id,
+      tenantId: tenant._id,
+      metadata: { subdomain: tenant.subdomain },
+      ipAddress: getClientIp(req),
+      userAgent: req.get('user-agent')
+    });
+  } catch (e) { /* no-op */ }
 });
 
 // @desc    Update tenant
@@ -304,6 +318,19 @@ exports.updateTenant = asyncHandler(async (req, res, next) => {
     success: true,
     data: tenant
   });
+
+  // Log activity: tenant updated
+  try {
+    await ActivityLog.log({
+      type: 'tenant_updated',
+      message: `Tenant updated: ${tenant.name}`,
+      userId: req.user?._id,
+      tenantId: tenant._id,
+      metadata: { updatedFields: Object.keys(req.body || {}) },
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+  } catch (e) { /* no-op */ }
 });
 
 // @desc    Delete tenant
@@ -329,6 +356,19 @@ exports.deleteTenant = asyncHandler(async (req, res, next) => {
     success: true,
     data: {}
   });
+
+  // Log activity: tenant deleted
+  try {
+    await ActivityLog.log({
+      type: 'tenant_deleted',
+      message: `Tenant deleted: ${tenant.name}`,
+      userId: req.user?._id,
+      tenantId: req.params.id,
+      metadata: {},
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent')
+    });
+  } catch (e) { /* no-op */ }
 });
 
 // @desc    Suspend tenant
@@ -480,69 +520,37 @@ exports.updateSystemSettings = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/super-admin/activity-logs
 // @access  Super Admin
 exports.getActivityLogs = asyncHandler(async (req, res, next) => {
-  const { page = 1, limit = 50, type, tenantId, userId } = req.query;
+  const { page = 1, limit = 50, type, tenantId, userId, severity, dateFrom, dateTo } = req.query;
 
-  // Mock activity logs - in a real app, these would come from a database
-  const logs = [
-    {
-      id: 1,
-      type: 'tenant_created',
-      message: 'New tenant "Green Gardens" registered',
-      tenantId: 'tenant1',
-      userId: 'user1',
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      metadata: { tenantName: 'Green Gardens', subdomain: 'greengardens' }
-    },
-    {
-      id: 2,
-      type: 'user_registered',
-      message: 'New user registered in "Urban Landscaping"',
-      tenantId: 'tenant2',
-      userId: 'user2',
-      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-      metadata: { userName: 'John Doe', userEmail: 'john@urbanlandscaping.com' }
-    },
-    {
-      id: 3,
-      type: 'payment_received',
-      message: 'Payment received from "Landscape Pro"',
-      tenantId: 'tenant3',
-      userId: 'user3',
-      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000),
-      metadata: { amount: 79, plan: 'premium' }
-    }
-  ];
-
-  // Filter logs based on query parameters
-  let filteredLogs = logs;
-
-  if (type) {
-    filteredLogs = filteredLogs.filter(log => log.type === type);
+  const query = {};
+  if (type) query.type = type;
+  if (tenantId) query.tenantId = tenantId;
+  if (userId) query.userId = userId;
+  if (severity) query.severity = severity;
+  if (dateFrom || dateTo) {
+    query.timestamp = {};
+    if (dateFrom) query.timestamp.$gte = new Date(dateFrom);
+    if (dateTo) query.timestamp.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
   }
 
-  if (tenantId) {
-    filteredLogs = filteredLogs.filter(log => log.tenantId === tenantId);
-  }
-
-  if (userId) {
-    filteredLogs = filteredLogs.filter(log => log.userId === userId);
-  }
-
-  // Sort by timestamp (newest first)
-  filteredLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  // Pagination
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
-  const paginatedLogs = filteredLogs.slice(startIndex, endIndex);
+  const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+  const [logs, total] = await Promise.all([
+    ActivityLog.find(query)
+      .populate('userId', 'name email')
+      .populate('tenantId', 'name subdomain')
+      .sort({ timestamp: -1 })
+      .skip(skip)
+      .limit(parseInt(limit, 10)),
+    ActivityLog.countDocuments(query)
+  ]);
 
   res.status(200).json({
     success: true,
-    data: paginatedLogs,
+    data: logs,
     pagination: {
-      current: parseInt(page),
-      pages: Math.ceil(filteredLogs.length / limit),
-      total: filteredLogs.length
+      current: parseInt(page, 10),
+      pages: Math.ceil(total / parseInt(limit, 10)),
+      total
     }
   });
 });
@@ -551,27 +559,14 @@ exports.getActivityLogs = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/super-admin/system/health
 // @access  Super Admin
 exports.getSystemHealth = asyncHandler(async (req, res, next) => {
-  // Mock system health data - in a real app, this would check actual system metrics
   const health = {
     status: 'healthy',
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    database: {
-      status: 'connected',
-      responseTime: 15
-    },
-    api: {
-      status: 'online',
-      responseTime: 25
-    },
-    email: {
-      status: 'active',
-      lastCheck: new Date()
-    },
-    payment: {
-      status: 'connected',
-      lastCheck: new Date()
-    },
+    database: { status: 'connected', responseTime: 15 },
+    api: { status: 'online', responseTime: 25 },
+    email: { status: 'active', lastCheck: new Date() },
+    payment: { status: 'connected', lastCheck: new Date() },
     services: [
       { name: 'Database', status: 'healthy', responseTime: 15 },
       { name: 'API Gateway', status: 'healthy', responseTime: 25 },
@@ -580,10 +575,7 @@ exports.getSystemHealth = asyncHandler(async (req, res, next) => {
     ]
   };
 
-  res.status(200).json({
-    success: true,
-    data: health
-  });
+  res.status(200).json({ success: true, data: health });
 });
 
 // @desc    Get tenant users
@@ -698,6 +690,17 @@ exports.createUser = asyncHandler(async (req, res, next) => {
     isEmailVerified: true
   });
 
+  // Log activity: user created
+  await ActivityLog.log({
+    type: 'user_registered',
+    message: `User created: ${user.email}`,
+    userId: req.user?._id,
+    tenantId: user.tenantId || undefined,
+    metadata: { targetUserId: user._id.toString(), role: user.role },
+    ipAddress: getClientIp(req),
+    userAgent: req.get('user-agent')
+  });
+
   res.status(201).json({
     success: true,
     data: user
@@ -722,6 +725,17 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     runValidators: true
   }).select('-password');
 
+  // Log activity: user updated
+  await ActivityLog.log({
+    type: 'user_updated',
+    message: `User updated: ${user.email}`,
+    userId: req.user?._id,
+    tenantId: user.tenantId || undefined,
+    metadata: { targetUserId: user._id.toString(), updatedFields: Object.keys(req.body || {}) },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
+
   res.status(200).json({
     success: true,
     data: user
@@ -744,6 +758,17 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
   }
 
   await user.deleteOne();
+
+  // Log activity: user deleted
+  await ActivityLog.log({
+    type: 'user_deleted',
+    message: `User deleted: ${user.email}`,
+    userId: req.user?._id,
+    tenantId: user.tenantId || undefined,
+    metadata: { targetUserId: user._id.toString(), role: user.role },
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent')
+  });
 
   res.status(200).json({
     success: true,

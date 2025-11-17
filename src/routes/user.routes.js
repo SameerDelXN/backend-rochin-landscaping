@@ -19,6 +19,17 @@ const advancedResults = require('../middlewares/advancedResults');
 router.get('/staff', protect, authorize('tenantAdmin'), getStaff);
 
 router.use(protect);
+
+// Allow both tenantAdmin and superAdmin to update a user record.
+// Important: define this BEFORE applying superAdmin-only middleware
+// so tenant admins can update staff within their tenant.
+router.put('/:id', authorize('tenantAdmin', 'superAdmin'), updateUser);
+
+// Allow both tenantAdmin and superAdmin to delete a user record.
+// Place before superAdmin-only middleware; controller will enforce tenant scope.
+router.delete('/:id', authorize('tenantAdmin', 'superAdmin'), deleteUser);
+
+// All routes below this line are superAdmin-only
 router.use(authorize('superAdmin'));
 
 router.route('/')
@@ -27,7 +38,6 @@ router.route('/')
 
 router.route('/:id')
   .get(getUser)
-  .put(updateUser)
   .delete(deleteUser);
 
-module.exports = router; 
+module.exports = router;
