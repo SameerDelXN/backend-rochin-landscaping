@@ -1,4 +1,4 @@
-function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
+﻿function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
   const mainDomain = process.env.BASE_DOMAIN || 'delxn.club';
 
   // Normalize helper: strip protocol and trailing slash from a domain/url
