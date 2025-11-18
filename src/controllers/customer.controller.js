@@ -1224,14 +1224,28 @@ exports.updateMyProfile = asyncHandler(async (req, res, next) => {
   }
 
   // Normalize address: allow either req.body.address or req.body.user.address
-  const normalizedAddress = req.body.address || req.body.user?.address;
+  const incomingAddress = req.body.address || req.body.user?.address;
 
-  // Update customer data
+  // Build update payload with merge semantics for address
   const fieldsToUpdate = {
     phone: req.body.phone,
-    address: normalizedAddress,
     propertyDetails: req.body.propertyDetails
   };
+
+  // Merge address only if provided and has at least one non-empty field
+  if (incomingAddress && typeof incomingAddress === 'object') {
+    const hasValue = ['street','city','state','zipCode','country']
+      .some(k => incomingAddress[k] && String(incomingAddress[k]).trim() !== '');
+    if (hasValue) {
+      fieldsToUpdate.address = {
+        street: incomingAddress.street ?? customer.address?.street ?? '',
+        city: incomingAddress.city ?? customer.address?.city ?? '',
+        state: incomingAddress.state ?? customer.address?.state ?? '',
+        zipCode: incomingAddress.zipCode ?? customer.address?.zipCode ?? '',
+        country: incomingAddress.country ?? customer.address?.country ?? 'USA'
+      };
+    }
+  }
 
   // Remove undefined fields
   Object.keys(fieldsToUpdate).forEach(

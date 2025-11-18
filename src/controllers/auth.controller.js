@@ -104,7 +104,14 @@ exports.register = asyncHandler(async (req, res, next) => {
       user: user._id,
       tenants: [tenantId], // for array schema
       tenant: tenantId,    // for singular schema
-      // ... other default customer fields ...
+      // Ensure address object exists with sensible defaults
+      address: {
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'USA'
+      }
     });
   }
 

@@ -725,6 +725,34 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
     formattedTimeSlot
   };
 
+  // If booking payload includes an address (various shapes), update the customer's saved address
+  const possibleAddress = (
+    (req.body && typeof req.body.address === 'object' && req.body.address) ||
+    (req.body && req.body.property && typeof req.body.property.address === 'object' && req.body.property.address) ||
+    (Array.isArray(req.body.properties) && req.body.properties[0] && typeof req.body.properties[0].address === 'object' && req.body.properties[0].address) ||
+    (Array.isArray(req.body.propertyDetails) && req.body.propertyDetails[0] && typeof req.body.propertyDetails[0].propertyAddress === 'object' && req.body.propertyDetails[0].propertyAddress)
+  );
+  if (possibleAddress) {
+    const a = possibleAddress || {};
+    const nextAddress = {
+      street: a.street || customer.address?.street || '',
+      city: a.city || customer.address?.city || '',
+      state: a.state || customer.address?.state || '',
+      zipCode: a.zipCode || customer.address?.zipCode || '',
+      country: a.country || customer.address?.country || 'USA'
+    };
+    try {
+      await Customer.findByIdAndUpdate(
+        customer._id,
+        { address: nextAddress },
+        { new: true, runValidators: true }
+      );
+    } catch (e) {
+      // Do not block booking if address update fails; log for diagnostics
+      console.error('Failed to update customer address from booking:', e?.message || e);
+    }
+  }
+
   // Create appointment
   const appointment = await Appointment.create(appointmentData);
 

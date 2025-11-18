@@ -56,8 +56,14 @@ function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
       // Use the request's origin/host when it's a public custom domain
       fullDomain = normalizeDomain(preferredHost);
     } else if (tenant.subdomain) {
-      // Fall back to subdomain on the platform base domain
-      fullDomain = `${tenant.subdomain}.${mainDomain}`;
+      // Local/dev: prefer subdomain:port (e.g., g1:3000). Production: subdomain.BASE_DOMAIN
+      if (isLocalDevHost(preferredHost)) {
+        const portMatch = String(preferredHost || '').match(/:(\d+)$/);
+        const port = (portMatch && portMatch[1]) || process.env.FRONTEND_PORT || process.env.PORT || '3000';
+        fullDomain = `${tenant.subdomain}:${port}`;
+      } else {
+        fullDomain = `${tenant.subdomain}.${mainDomain}`;
+      }
     } else {
       // Final fallback to main domain
       fullDomain = normalizeDomain(mainDomain);
@@ -68,7 +74,17 @@ function getTenantFrontendUrl(tenantOrSubdomain, path = '', options = {}) {
     if (preferredHost && !isAdminOrLocal(preferredHost)) {
       fullDomain = normalizeDomain(preferredHost);
     } else {
-      fullDomain = sub ? `${sub}.${mainDomain}` : normalizeDomain(mainDomain);
+      if (sub) {
+        if (isLocalDevHost(preferredHost)) {
+          const portMatch = String(preferredHost || '').match(/:(\d+)$/);
+          const port = (portMatch && portMatch[1]) || process.env.FRONTEND_PORT || process.env.PORT || '3000';
+          fullDomain = `${sub}:${port}`;
+        } else {
+          fullDomain = `${sub}.${mainDomain}`;
+        }
+      } else {
+        fullDomain = normalizeDomain(mainDomain);
+      }
     }
   }
 
