@@ -238,6 +238,17 @@ exports.createTenant = asyncHandler(async (req, res, next) => {
   const normalizedPlan = typeof plan === 'string' ? plan.trim().toLowerCase() : undefined;
   const billingCycle = normalizedPlan === 'annual' ? 'yearly' : normalizedPlan === 'monthly' ? 'monthly' : undefined;
 
+  // Normalize domain-like fields from body
+  const normalizeHost = (d) => String(d).replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+  let customDomains = [];
+  if (Array.isArray(req.body.customDomains)) {
+    customDomains = req.body.customDomains.filter(Boolean).map(normalizeHost);
+  } else if (typeof req.body.customDomains === 'string' && req.body.customDomains.trim()) {
+    customDomains = req.body.customDomains.split(',').map(s => s.trim()).filter(Boolean).map(normalizeHost);
+  }
+  const domain = req.body.domain ? normalizeHost(req.body.domain) : undefined;
+  const website = req.body.website ? normalizeHost(req.body.website) : undefined;
+
   // 1. Create tenant with super admin as temporary owner
   const tenant = await Tenant.create({
     name,
@@ -249,6 +260,10 @@ exports.createTenant = asyncHandler(async (req, res, next) => {
       themeColor: '#10B981',
       timezone: 'UTC'
     },
+    // Purchased domain fields (optional)
+    ...(customDomains.length ? { customDomains } : {}),
+    ...(domain ? { domain } : {}),
+    ...(website ? { website } : {}),
     subscription: {
       // Keep plan key neutral until the tenant picks a plan via Stripe
       plan: 'none',
