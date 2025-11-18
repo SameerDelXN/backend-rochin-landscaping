@@ -120,12 +120,22 @@ exports.getTenants = asyncHandler(async (req, res, next) => {
     .skip((page - 1) * limit)
     .sort({ createdAt: -1 });
 
+  // Derive 'host' per tenant to avoid base-domain fallbacks in UI
+  const tenantsWithHost = tenants.map((t) => {
+    const obj = t.toObject();
+    const normalize = (d) => String(d).replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+    const firstCustom = Array.isArray(obj.customDomains) && obj.customDomains.length > 0 ? normalize(obj.customDomains[0]) : null;
+    const explicitDomain = obj.domain ? normalize(obj.domain) : null;
+    obj.host = firstCustom || explicitDomain || null;
+    return obj;
+  });
+
   // Get total count
   const total = await Tenant.countDocuments(query);
 
   res.status(200).json({
     success: true,
-    data: tenants,
+    data: tenantsWithHost,
     pagination: {
       current: page,
       pages: Math.ceil(total / limit),
@@ -172,6 +182,14 @@ exports.getTenant = asyncHandler(async (req, res, next) => {
   ];
 
   const tenantData = tenant.toObject();
+  // Derive 'host' for detail view as well
+  try {
+    const normalize = (d) => String(d).replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
+    const firstCustom = Array.isArray(tenantData.customDomains) && tenantData.customDomains.length > 0 ? normalize(tenantData.customDomains[0]) : null;
+    const explicitDomain = tenantData.domain ? normalize(tenantData.domain) : null;
+    tenantData.host = firstCustom || explicitDomain || null;
+  } catch (_) { /* no-op */ }
+
   tenantData.stats = {
     users: userCount,
     appointments: appointmentCount,
