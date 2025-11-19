@@ -24,10 +24,29 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
 
   // Get recent activity (last 7 days)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [recentTenants, recentUsers, recentAppointments] = await Promise.all([
-    Tenant.find({ createdAt: { $gte: sevenDaysAgo } }).limit(3).populate('owner', 'name').catch(() => []),
-    User.find({ createdAt: { $gte: sevenDaysAgo }, role: { $ne: 'superAdmin' } }).limit(3).populate('tenantId', 'name').catch(() => []),
-    Appointment.find({ createdAt: { $gte: sevenDaysAgo } }).limit(3).populate('customer', 'name').populate('tenantId', 'name').catch(() => [])
+  const [recentTenants, recentUsers, recentAppointments, recentLogs] = await Promise.all([
+    Tenant.find({ createdAt: { $gte: sevenDaysAgo } })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('owner', 'name')
+      .catch(() => []),
+    User.find({ createdAt: { $gte: sevenDaysAgo }, role: { $ne: 'superAdmin' } })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('tenantId', 'name')
+      .catch(() => []),
+    Appointment.find({ createdAt: { $gte: sevenDaysAgo } })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .populate('customer', 'name')
+      .populate('tenantId', 'name')
+      .catch(() => []),
+    ActivityLog.find({ timestamp: { $gte: sevenDaysAgo } })
+      .sort({ timestamp: -1 })
+      .limit(10)
+      .populate('userId', 'name')
+      .populate('tenantId', 'name')
+      .catch(() => [])
   ]);
 
   // Calculate growth rates
@@ -66,6 +85,13 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
       message: `Appointment scheduled with ${apt.customer?.name || 'Unknown'} at ${apt.tenantId?.name || 'Unknown'}`,
       time: apt.createdAt,
       icon: '📅'
+    })),
+    ...recentLogs.map(log => ({
+      id: log._id,
+      type: log.type,
+      message: log.message,
+      time: log.timestamp || log.createdAt,
+      icon: '📝'
     }))
   ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10);
 

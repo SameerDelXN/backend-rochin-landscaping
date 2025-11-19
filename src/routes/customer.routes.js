@@ -23,7 +23,7 @@ const advancedResults = require('../middlewares/advancedResults');
 
 // Routes for current customer (customer role)
 router.get('/me', protect, 
-  // authorize('customer'), 
+  authorize('customer'), 
   getMyProfile);
 router.put('/me', protect, authorize('customer'), updateMyProfile);
 router.get('/me/history', protect, authorize('customer'), getMyServiceHistory);
