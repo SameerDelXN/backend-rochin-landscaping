@@ -1471,6 +1471,54 @@ exports.updateCrewAssignment = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Check for scheduling conflicts for the given time window
+  const dateOnly = new Date(appointment.date.toISOString().split('T')[0]);
+  const { startTime, endTime } = appointment.timeSlot || {};
+  if (!startTime || !endTime) {
+    return next(new ErrorResponse('Appointment timeSlot is missing', 400));
+  }
+
+  // Helper to check availability for a professional (as lead or team member)
+  const hasConflict = async (professionalId) => {
+    // Conflicts where this professional is lead
+    const leadConflicts = await Appointment.find({
+      'crew.leadProfessional': professionalId,
+      date: dateOnly,
+      'timeSlot.startTime': { $lt: endTime },
+      'timeSlot.endTime': { $gt: startTime },
+      _id: { $ne: appointment._id }
+    }).limit(1);
+
+    if (leadConflicts.length > 0) return true;
+
+    // Conflicts where this professional is in assignedTo
+    const teamConflicts = await Appointment.find({
+      'crew.assignedTo': professionalId,
+      date: dateOnly,
+      'timeSlot.startTime': { $lt: endTime },
+      'timeSlot.endTime': { $gt: startTime },
+      _id: { $ne: appointment._id }
+    }).limit(1);
+
+    return teamConflicts.length > 0;
+  };
+
+  // Check lead availability
+  if (leadProfessional) {
+    const leadBusy = await hasConflict(leadProfessional);
+    if (leadBusy) {
+      return next(new ErrorResponse('Lead professional is not available during this time slot', 400));
+    }
+  }
+
+  // Check each assigned staff availability
+  for (const memberId of assignedTo || []) {
+    const busy = await hasConflict(memberId);
+    if (busy) {
+      return next(new ErrorResponse(`Staff member ${memberId} is not available during this time slot`, 400));
+    }
+  }
+
   // Update crew assignment
   appointment.crew = {
     leadProfessional: leadProfessional || null,
