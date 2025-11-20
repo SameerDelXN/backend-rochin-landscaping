@@ -41,17 +41,19 @@ router.route('/')
     getCustomers
   )
 
-  .get(
-    protect, 
-    authorize('superAdmin'), 
-    advancedResults(Customer, {
-      path: 'user',
-      select: 'name email phone'
-    }),
-    getallCustomers
-  )
-
   .post(protect, authorize('tenantAdmin'), createCustomerByAdmin);
+
+
+// ✅ SUPERADMIN ROUTE - SEPARATE ENDPOINT
+router.get('/superadmin/all',
+  protect, 
+  authorize('superAdmin'), 
+  advancedResults(Customer, {
+    path: 'user',
+    select: 'name email phone'
+  }),
+  getallCustomers  // Separate controller for superAdmin
+);
 
 
 //   router.post(

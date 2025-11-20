@@ -41,12 +41,12 @@ exports.getCustomers = asyncHandler(async (req, res, next) => {
 });
 
 
-// In your customers controller
+// For SUPERADMIN - gets ALL customers
 exports.getallCustomers = async (req, res) => {
   try {
     const customers = await Customer.find()
-      .populate('user', 'name email phone firstName lastName') // Populate user details
-      .populate('tenants', 'name') // Optionally populate tenant names
+      .populate('user', 'name email phone firstName lastName')
+      .populate('tenants', 'name')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -62,7 +62,6 @@ exports.getallCustomers = async (req, res) => {
     });
   }
 };
-
 
 // @desc    Get single customer
 // @route   GET /api/v1/customers/:id
