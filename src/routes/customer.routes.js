@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   getCustomers,
+  getallCustomers,
   getCustomer,
   createCustomerByAdmin,
   updateCustomer,
@@ -39,6 +40,17 @@ router.route('/')
     }),
     getCustomers
   )
+
+  .get(
+    protect, 
+    authorize('superAdmin'), 
+    advancedResults(Customer, {
+      path: 'user',
+      select: 'name email phone'
+    }),
+    getallCustomers
+  )
+
   .post(protect, authorize('tenantAdmin'), createCustomerByAdmin);
 
 

@@ -40,6 +40,30 @@ exports.getCustomers = asyncHandler(async (req, res, next) => {
   res.status(200).json(res.advancedResults);
 });
 
+
+// In your customers controller
+exports.getallCustomers = async (req, res) => {
+  try {
+    const customers = await Customer.find()
+      .populate('user', 'name email phone firstName lastName') // Populate user details
+      .populate('tenants', 'name') // Optionally populate tenant names
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: customers.length,
+      data: customers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customers',
+      error: error.message
+    });
+  }
+};
+
+
 // @desc    Get single customer
 // @route   GET /api/v1/customers/:id
 // @access  Private/Admin
