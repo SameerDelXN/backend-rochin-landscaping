@@ -114,3 +114,44 @@ const sendEmail = async (options) => {
 };
 
 module.exports = sendEmail;
+
+
+
+
+
+
+// const nodemailer = require('nodemailer');
+
+// const sendEmail = async (options) => {
+//   try {
+//     const transporter = nodemailer.createTransport({
+//       host: process.env.SMTP_HOST,
+//       port: Number(process.env.SMTP_PORT),
+//       secure: false,
+//       auth: {
+//         user: process.env.SMTP_USER,
+//         pass: process.env.EMAIL_PASSWORD,
+//       },
+//     });
+
+//     console.log('✅ Using Brevo SMTP configuration');
+
+//     const mailOptions = {
+//       from: `"${process.env.EMAIL_FROM}" <${process.env.SMTP_USER}>`,
+//       to: options.email,
+//       subject: options.subject,
+//       text: options.message,
+//       html: options.html || options.message,
+//     };
+
+//     const info = await transporter.sendMail(mailOptions);
+//     console.log('📧 Email sent:', info.messageId);
+
+//     return info;
+//   } catch (error) {
+//     console.error('❌ Email sending error:', error);
+//     throw new Error('Email could not be sent');
+//   }
+// };
+
+// module.exports = sendEmail;
