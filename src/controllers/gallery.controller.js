@@ -3,6 +3,7 @@ const cloudinary = require('../utils/cloudinary');
 const asyncHandler = require('../middlewares/async');
 const ErrorResponse = require('../utils/errorResponse');
 const tenantContext = require('../utils/tenantContext');
+const { v2: cloudinaryCore } = require('cloudinary');
 
 // @desc    Create new gallery entry
 // @route   POST /api/v1/gallery
@@ -15,10 +16,22 @@ exports.createGallery = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Missing required fields', 400));
   }
 
-  // Handle image uploads
+  // Handle image uploads (supports direct-upload metadata or server-side upload)
   const images = [];
   
-  if (req.files && req.files.images) {
+  if (req.body.images) {
+    let incoming = req.body.images;
+    if (typeof incoming === 'string') {
+      try { incoming = JSON.parse(incoming); } catch (e) { incoming = []; }
+    }
+    if (Array.isArray(incoming)) {
+      for (const img of incoming) {
+        if (img && img.url && img.publicId) {
+          images.push({ url: img.url, publicId: img.publicId, caption: img.caption || '' });
+        }
+      }
+    }
+  } else if (req.files && req.files.images) {
     const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
     
     try {
@@ -75,6 +88,29 @@ exports.createGallery = asyncHandler(async (req, res, next) => {
     console.error('Database error:', dbError);
     return next(new ErrorResponse('Error creating gallery in database', 500));
   }
+});
+
+// @desc    Get Cloudinary upload signature for direct client uploads
+// @route   GET /api/v1/gallery/upload-signature
+// @access  Private/Admin
+exports.getUploadSignature = asyncHandler(async (req, res, next) => {
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = 'gallery';
+  const paramsToSign = { timestamp, folder };
+  const signature = cloudinaryCore.utils.api_sign_request(
+    paramsToSign,
+    cloudinaryCore.config().api_secret
+  );
+  return res.status(200).json({
+    success: true,
+    data: {
+      timestamp,
+      signature,
+      cloudName: cloudinaryCore.config().cloud_name,
+      apiKey: cloudinaryCore.config().api_key,
+      folder
+    }
+  });
 });
 
 // @desc    Get all gallery entries for current tenant admin
@@ -154,8 +190,20 @@ exports.updateGallery = asyncHandler(async (req, res, next) => {
     gallery.thumbnailIndex = parseInt(req.body.thumbnailIndex);
   }
 
-  // Handle new image uploads
-  if (req.files && req.files.images) {
+  // Handle new image uploads (supports direct-upload metadata or server-side upload)
+  if (req.body.images) {
+    let incoming = req.body.images;
+    if (typeof incoming === 'string') {
+      try { incoming = JSON.parse(incoming); } catch (e) { incoming = []; }
+    }
+    if (Array.isArray(incoming)) {
+      for (const img of incoming) {
+        if (img && img.url && img.publicId) {
+          gallery.images.push({ url: img.url, publicId: img.publicId, caption: img.caption || '' });
+        }
+      }
+    }
+  } else if (req.files && req.files.images) {
     const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
     
     for (const file of files) {
