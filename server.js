@@ -80,8 +80,10 @@ app.use(helmet({
 
 // Add this before your routes
 app.use(fileUpload({
-  useTempFiles: true,
-  tempFileDir: '/tmp/', // Use absolute path for temp files
+  // useTempFiles: true,
+  // tempFileDir: '/tmp/', // Use absolute path for temp files
+  useTempFiles: false,
+
   createParentPath: true,
   limits: { 
     fileSize: 50 * 1024 * 1024, // 50MB limit (adjust as needed)

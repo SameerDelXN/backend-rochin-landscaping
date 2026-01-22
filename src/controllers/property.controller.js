@@ -243,35 +243,6 @@ exports.uploadPropertyImages = asyncHandler(async (req, res, next) => {
     }
   }
 
-  // Path A: Accept already-uploaded Cloudinary images from client to avoid server-side file handling
-  try {
-    let bodyImages = req.body.images;
-    if (typeof bodyImages === 'string') {
-      try { bodyImages = JSON.parse(bodyImages); } catch (_) {}
-    }
-    if (Array.isArray(bodyImages) && bodyImages.length > 0) {
-      const uploadedImages = [];
-      for (const img of bodyImages) {
-        if (img && img.url && img.publicId) {
-          uploadedImages.push({
-            url: img.url,
-            publicId: img.publicId,
-            caption: img.caption || '',
-            isPrimary: property.images.length === 0 && uploadedImages.length === 0,
-            uploadedAt: new Date()
-          });
-        }
-      }
-      if (uploadedImages.length === 0) {
-        return next(new ErrorResponse('No valid images provided', 400));
-      }
-      property.images.push(...uploadedImages);
-      await property.save();
-      return res.status(200).json({ success: true, data: uploadedImages });
-    }
-  } catch (_) {}
-
-  // Path B: Fallback to server-side upload if files are posted (less ideal on serverless)
   if (!req.files || Object.keys(req.files).length === 0) {
     return next(new ErrorResponse('Please upload at least one image', 400));
   }
