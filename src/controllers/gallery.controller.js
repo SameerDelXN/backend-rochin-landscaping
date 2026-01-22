@@ -35,18 +35,36 @@ exports.createGallery = asyncHandler(async (req, res, next) => {
     const files = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
     
     try {
-      for (const file of files) {
-        const result = await cloudinary.uploader.upload(file.tempFilePath, {
-          folder: 'gallery',
-          resource_type: 'auto'
-        });
+      // for (const file of files) {
+      //   const result = await cloudinary.uploader.upload(file.tempFilePath, {
+      //     folder: 'gallery',
+      //     resource_type: 'auto'
+      //   });
         
-        images.push({
-          url: result.secure_url,
-          publicId: result.public_id,
-          caption: req.body.captions ? req.body.captions[files.indexOf(file)] : ''
-        });
+      //   images.push({
+      //     url: result.secure_url,
+      //     publicId: result.public_id,
+      //     caption: req.body.captions ? req.body.captions[files.indexOf(file)] : ''
+      //   });
+      // }
+      for (const file of files) {
+  const result = await new Promise((resolve, reject) => {
+    cloudinary.uploader.upload_stream(
+      { folder: 'gallery', resource_type: 'auto' },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
       }
+    ).end(file.data);
+  });
+
+  images.push({
+    url: result.secure_url,
+    publicId: result.public_id,
+    caption: ''
+  });
+}
+
     } catch (uploadError) {
       console.error('Cloudinary upload error:', uploadError);
       return next(new ErrorResponse('Error uploading images to Cloudinary', 500));
