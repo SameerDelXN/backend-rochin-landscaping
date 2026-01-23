@@ -224,3 +224,6 @@ process.on('uncaughtException', (err) => {
     process.exit(1);
   });
 });
+
+// Export app for Vercel
+module.exports = app;

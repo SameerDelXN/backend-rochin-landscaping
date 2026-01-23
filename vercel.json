@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "name": "landscaping-api",
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/server.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization, X-Tenant-Domain, X-Tenant-Subdomain, x-tenant-id, x-tenant-subdomain, x-tenant-domain, x-all-tenants",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+      }
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
