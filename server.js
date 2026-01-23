@@ -35,15 +35,16 @@ app.use((req, res, next) => {
     } else if (typeof existingVary === 'string' && !existingVary.includes('Origin')) {
       res.setHeader('Vary', existingVary + ', Origin');
     }
-    // As a safety net, set ACAO early; cors() below will set it too
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
   }
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
-// Primary CORS configuration - echo request origin
+// Primary CORS configuration
+// We invoke "origin: true" to reflect the request origin, allowing any domain to access the API.
+// This is required for a multi-tenant system where tenants can add custom domains dynamically.
+// Security against unauthorized access is enforced by the 'resolveTenant' middleware, 
+// which validates if the origin matches a known tenant in the database.
 app.use(cors({
   origin: true,
   credentials: true,
@@ -60,6 +61,7 @@ app.use(cors({
     'x-all-tenants'
   ]
 }));
+
 
 // Explicitly handle preflight requests with CORS (before any routes)
 app.options('*', cors({ origin: true, credentials: true }));
