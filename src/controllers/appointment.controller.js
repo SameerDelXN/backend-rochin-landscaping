@@ -706,7 +706,7 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
   };
 
   // Format date for display
-  const formattedDate = new Date(req.body.date).toLocaleDateString('en-US', {
+    const formattedDate = new Date(normalizedDate).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -717,8 +717,9 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
   const formattedTimeSlot = `${formatTimeForDisplay(req.body.timeSlot.startTime)} - ${formatTimeForDisplay(req.body.timeSlot.endTime)}`;
 
   // Prepare appointment data
-  const appointmentData = {
+    const appointmentData = {
     ...req.body,
+    date: normalizedDate, // force UTC midnight
     tenant: service.tenantId,
     customer: customer._id,
     createdBy: userId,
@@ -756,11 +757,18 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
   }
 
   // Check for overlapping appointments for the same service
+     const startOfDayUTC = normalizedDate;
+  const endOfDayUTC = new Date(Date.UTC(
+    normalizedDate.getUTCFullYear(),
+    normalizedDate.getUTCMonth(),
+    normalizedDate.getUTCDate(),
+    23, 59, 59, 999
+  ));
   const existingAppointments = await Appointment.find({
     service: req.body.service,
     date: {
-      $gte: new Date(new Date(req.body.date).setHours(0, 0, 0, 0)),
-      $lt: new Date(new Date(req.body.date).setHours(23, 59, 59, 999))
+      $gte: startOfDayUTC,
+      $lt: endOfDayUTC
     },
     status: { $nin: ['Cancelled', 'Rejected'] }
   });
@@ -1424,6 +1432,18 @@ exports.getCalendarAppointments = asyncHandler(async (req, res, next) => {
     // Get start and end times with validation
     const startTime = apt.timeSlot?.startTime || '00:00';
     const endTime = apt.timeSlot?.endTime || '00:00';
+
+
+
+      // Normalize the incoming booking date to UTC midnight to avoid client timezone mismatches
+  const normalizeDateToUTC = (inputDate) => {
+    const d = new Date(inputDate);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const day = d.getUTCDate();
+    return new Date(Date.UTC(y, m, day));
+  };
+  const normalizedDate = normalizeDateToUTC(req.body.date);
     
     // Create date objects with validation
     const startDate = new Date(`${apt.date.toISOString().split('T')[0]}T${startTime}`);
