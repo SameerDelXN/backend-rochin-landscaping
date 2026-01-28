@@ -558,18 +558,20 @@ exports.getAvailability = async (req, res) => {
     }
   });
 
-  // Mark only exact matches as booked
+  // Mark overlapping slots as booked
   bookedAppointments.forEach(booking => {
-    const bookedStart = booking.timeSlot.startTime.padStart(5, '0');
-    const bookedEnd = booking.timeSlot.endTime.padStart(5, '0');
+    // Only consider active bookings
+    if (['Cancelled', 'Rejected'].includes(booking.status)) return;
+
+    const bookedStartVal = parseInt(booking.timeSlot.startTime.replace(':', ''));
+    const bookedEndVal = parseInt(booking.timeSlot.endTime.replace(':', ''));
     
-    const slotIndex = slots.findIndex(
-      s => s.startTime === bookedStart && s.endTime === bookedEnd
-    );
-    
-    if (slotIndex !== -1) {
-      slots[slotIndex].available = false;
-    }
+    slots.forEach(slot => {
+      // Check for exact match only
+      if (slot.startTime === booking.timeSlot.startTime && slot.endTime === booking.timeSlot.endTime) {
+        slot.available = false;
+      }
+    });
   });
 
   return res.json({
@@ -751,6 +753,28 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
       // Do not block booking if address update fails; log for diagnostics
       console.error('Failed to update customer address from booking:', e?.message || e);
     }
+  }
+
+  // Check for overlapping appointments for the same service
+  const existingAppointments = await Appointment.find({
+    service: req.body.service,
+    date: {
+      $gte: new Date(new Date(req.body.date).setHours(0, 0, 0, 0)),
+      $lt: new Date(new Date(req.body.date).setHours(23, 59, 59, 999))
+    },
+    status: { $nin: ['Cancelled', 'Rejected'] }
+  });
+
+  // Check for EXACT duplicate slots only (same start AND same end time)
+  // Per user requirement: Overlapping times (e.g. 8:00-9:00 and 8:30-9:30) allow booking.
+  // We only prevent EXACT duplicate bookings (8:00-9:00 vs 8:00-9:00).
+  const hasExactConflict = existingAppointments.some(appt => {
+    return (appt.timeSlot.startTime === req.body.timeSlot.startTime && 
+            appt.timeSlot.endTime === req.body.timeSlot.endTime);
+  });
+
+  if (hasExactConflict) {
+    return next(new ErrorResponse('This time slot has already been booked. Please select another time.', 400));
   }
 
   // Create appointment
