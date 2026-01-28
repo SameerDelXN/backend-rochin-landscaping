@@ -680,6 +680,13 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Normalize the incoming booking date to UTC midnight to avoid client timezone mismatches
+const normalizeDateToUTC = (inputDate) => {
+  const d = new Date(inputDate);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+};
+const normalizedDate = normalizeDateToUTC(req.body.date);
+
   // Calculate duration in minutes
   const calculateDuration = (start, end) => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -1436,14 +1443,14 @@ exports.getCalendarAppointments = asyncHandler(async (req, res, next) => {
 
 
       // Normalize the incoming booking date to UTC midnight to avoid client timezone mismatches
-  const normalizeDateToUTC = (inputDate) => {
-    const d = new Date(inputDate);
-    const y = d.getUTCFullYear();
-    const m = d.getUTCMonth();
-    const day = d.getUTCDate();
-    return new Date(Date.UTC(y, m, day));
-  };
-  const normalizedDate = normalizeDateToUTC(req.body.date);
+  // const normalizeDateToUTC = (inputDate) => {
+  //   const d = new Date(inputDate);
+  //   const y = d.getUTCFullYear();
+  //   const m = d.getUTCMonth();
+  //   const day = d.getUTCDate();
+  //   return new Date(Date.UTC(y, m, day));
+  // };
+  // const normalizedDate = normalizeDateToUTC(req.body.date);
     
     // Create date objects with validation
     const startDate = new Date(`${apt.date.toISOString().split('T')[0]}T${startTime}`);
