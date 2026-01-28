@@ -40,7 +40,7 @@ const AppointmentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled'],
+    enum: ['Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'Rescheduled', 'Rejected'],
     default: 'Pending'
   },
   recurringType: {
@@ -176,6 +176,23 @@ AppointmentSchema.virtual('calendarColor').get(function() {
   return colorMap[this.service.category] || '#6c757d';
 });
 
+// Prevent exact duplicate bookings for the same service, date, and time
+// This handles race conditions where two users book at the exact same millisecond
+AppointmentSchema.index(
+  { 
+    service: 1, 
+    date: 1, 
+    "timeSlot.startTime": 1, 
+    "timeSlot.endTime": 1 
+  },
+  { 
+    unique: true, 
+    partialFilterExpression: { 
+      status: { $nin: ['Cancelled', 'Rejected'] } 
+    } 
+  }
+);
+
 AppointmentSchema.plugin(tenantScopePlugin);
 
-module.exports = mongoose.model('Appointment', AppointmentSchema); 
+module.exports = mongoose.model('Appointment', AppointmentSchema);

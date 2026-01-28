@@ -777,8 +777,16 @@ exports.createAppointment = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('This time slot has already been booked. Please select another time.', 400));
   }
 
-  // Create appointment
-  const appointment = await Appointment.create(appointmentData);
+  // Create appointment with race condition handling
+  let appointment;
+  try {
+    appointment = await Appointment.create(appointmentData);
+  } catch (error) {
+    if (error.code === 11000) {
+      return next(new ErrorResponse('This time slot was just booked by another customer. Please select another time.', 400));
+    }
+    throw error;
+  }
 
   // Add customer to tenant's customers list if not already there
   await Customer.findByIdAndUpdate(
